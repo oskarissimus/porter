@@ -1,26 +1,18 @@
-from langchain import LLMChain, OpenAI, PromptTemplate
-from langchain.agents import (
-    AgentExecutor,
-    AgentType,
-    Tool,
-    ZeroShotAgent,
-    initialize_agent,
-)
+from langchain import LLMChain, OpenAI
+from langchain.agents import AgentExecutor, Tool, ZeroShotAgent
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.utilities import BashProcess
 
 prefix = """
 Your task is to port js codebase to ts.
-Codebase is in directory: /home/oskar/git/korczak-xyz/korczak-xyz/src.
 You have to work in steps.
-0. prefix all your bash commands with propper pwd
 1. count all remaining js files. If count = 0 finish. If count is > 0 go to step 2
 2. pick random js file from directory
 3. change its extension to tsx
-4. run npx tsc command to check if file is valid
+4. validate file
 5. if file is valid go to step 1
-6. if file is invalid fix it and go to step 4
+6. if file is invalid go to step 2
 You have access to the following tools:"""
 suffix = """Begin!"
 
@@ -35,7 +27,27 @@ tools = [
         name="bash",
         func=bash.run,
         description="usefull for running bash commands",
-    )
+    ),
+    Tool(
+        name="count remaining js files",
+        func=lambda x: bash.run("find . -name '*.js' | wc -l"),
+        description="usefull for counting remaining js files",
+    ),
+    Tool(
+        name="pick random js file",
+        func=lambda x: bash.run("find . -name '*.js' | shuf -n 1"),
+        description="usefull for picking random js file",
+    ),
+    Tool(
+        name="validate file",
+        func=lambda x: bash.run("npx tsc {x}"),
+        description="usefull for validating file",
+    ),
+    Tool(
+        name="show whats wrong with file",
+        func=lambda x: bash.run("npx tsc {x} 2>&1 || exit 0"),
+        description="usefull for showing whats wrong with file",
+    ),
 ]
 
 prompt = ZeroShotAgent.create_prompt(
